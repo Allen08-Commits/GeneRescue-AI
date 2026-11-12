@@ -21,45 +21,16 @@ st.set_page_config(
 )
 
 
-# ---------------- CUSTOM STYLING ----------------
+# ---------------- GLOBAL STYLING ----------------
 
 css_path = Path("assets/style.css")
 
 if css_path.exists():
-    with open(css_path, "r", encoding="utf-8") as file:
-        st.markdown(
-            f"<style>{file.read()}</style>",
-            unsafe_allow_html=True
-        )
-
-st.markdown("""
-<style>
-
-.stApp {
-    background-color: #F5F8F4;
-}
-
-[data-testid="stSidebar"] {
-    background-color: #123C2D;
-}
-
-[data-testid="stSidebar"] * {
-    color: white;
-}
-
-[data-testid="stMetric"] {
-    background: white;
-    padding: 16px;
-    border-radius: 12px;
-    border: 1px solid #DCE8DD;
-}
-
-h1, h2, h3 {
-    color: #174C35;
-}
-
-</style>
-""", unsafe_allow_html=True)
+    css_content = css_path.read_text(encoding="utf-8")
+    st.markdown(
+        f"<style>{css_content}</style>",
+        unsafe_allow_html=True
+    )
 
 
 # ---------------- SESSION STATE ----------------
@@ -67,16 +38,17 @@ h1, h2, h3 {
 if "analysis_history" not in st.session_state:
     st.session_state.analysis_history = []
 
+if "rescue_report_data" not in st.session_state:
+    st.session_state.rescue_report_data = None
 
-# ---------------- SIDEBAR ----------------
+
+# ---------------- SIDEBAR NAVIGATION ----------------
 
 with st.sidebar:
 
     st.markdown("# 🌱 GeneRescue AI")
 
-    st.caption(
-        "Intelligent Genetic Rescue System"
-    )
+    st.caption("Intelligent Genetic Rescue System")
 
     st.divider()
 
@@ -111,31 +83,24 @@ with st.sidebar:
 # ---------------- PAGE ROUTING ----------------
 
 if page == "Dashboard":
-
     show_dashboard()
 
 elif page == "Genetic Data Analyzer":
-
     show_data_analyzer()
 
 elif page == "Gene Identification":
-
     show_gene_identification()
 
 elif page == "Variant Analysis":
-
     show_variant_analysis()
 
 elif page == "Rescue Recommendations":
-
     show_rescue_recommendations()
 
 elif page == "Crop Improvement Predictor":
-
     show_crop_predictor()
 
 elif page == "Research Reports":
-
     show_research_reports()
 
 
@@ -145,7 +110,7 @@ st.divider()
 
 st.markdown(
     """
-    <div style="text-align:center;color:#718477;font-size:12px;">
+    <div class="app-footer">
         GeneRescue AI | Intelligent Genetic Rescue System
         for Crop Improvement<br>
         Computational research support. Experimental validation required.
