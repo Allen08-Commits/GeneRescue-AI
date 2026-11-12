@@ -7,8 +7,12 @@ from io import StringIO
 def load_fasta(file):
     """Read DNA or protein sequences from a FASTA file."""
     try:
-        content = file.getvalue().decode("utf-8")
-        records = list(SeqIO.parse(StringIO(content), "fasta"))
+        content = file.getvalue().decode("utf-8-sig")
+
+        # fasta-blast supports comment lines in FASTA files
+        records = list(
+            SeqIO.parse(StringIO(content), "fasta-blast")
+        )
 
         if not records:
             raise ValueError("No FASTA sequences found.")
@@ -35,9 +39,9 @@ def load_csv(file):
 
 
 def load_vcf(file):
-    """Read basic VCF variant records without external VCF dependencies."""
+    """Read basic VCF variant records."""
     try:
-        content = file.getvalue().decode("utf-8")
+        content = file.getvalue().decode("utf-8-sig")
         records = []
 
         for line in content.splitlines():
@@ -86,4 +90,3 @@ def load_dataset(file):
         raise ValueError(
             "Unsupported file format. Upload FASTA, CSV or VCF."
         )
-
