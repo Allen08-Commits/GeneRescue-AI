@@ -46,6 +46,44 @@ def show_research_reports():
     gene_results = None
     variant_summary = None
 
+    # Retrieve saved rescue recommendations.
+    saved_recommendations = st.session_state.get(
+        "rescue_report_data"
+    )
+
+    recommendations = None
+
+    if saved_recommendations:
+
+        if saved_recommendations["trait"] == trait:
+
+            recommendations = {
+                "recommended_strategies":
+                    saved_recommendations["recommended_strategies"],
+
+                "validation_methods":
+                    saved_recommendations["validation_methods"]
+            }
+
+            st.success(
+                "Previously generated rescue recommendations "
+                "found and linked to this report."
+            )
+
+        else:
+            st.warning(
+                "Saved recommendations are for "
+                f"{saved_recommendations['trait']}. "
+                "Generate recommendations for {trait} "
+                "before including them in this report."
+            )
+
+    else:
+        st.info(
+            "No saved rescue recommendations found. "
+            "Generate them in the Rescue Recommendations module first."
+        )
+
     try:
 
         if sequence_file:
@@ -60,9 +98,7 @@ def show_research_reports():
 
         if variant_file:
 
-            variants = pd.read_csv(
-                variant_file
-            )
+            variants = pd.read_csv(variant_file)
 
             if "Variant_Type" not in variants.columns:
                 st.error(
@@ -83,7 +119,8 @@ def show_research_reports():
                 trait=trait,
                 sequence_results=sequence_results,
                 gene_results=gene_results,
-                variant_summary=variant_summary
+                variant_summary=variant_summary,
+                recommendations=recommendations
             )
 
             st.success("PDF report generated successfully!")
@@ -97,4 +134,3 @@ def show_research_reports():
 
     except Exception as e:
         st.error(f"Report generation failed: {e}")
-
