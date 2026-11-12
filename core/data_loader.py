@@ -11,7 +11,7 @@ def load_fasta(file):
 
         # fasta-blast supports comment lines in FASTA files
         records = list(
-            SeqIO.parse(StringIO(content), "fasta-blast")
+            SeqIO.parse(StringIO(content), "fasta-pearson")
         )
 
         if not records:
