@@ -51,6 +51,17 @@ def show_rescue_recommendations():
                 supporting_evidence=evidence
             )
 
+            # Save recommendations for the PDF report.
+            st.session_state["rescue_report_data"] = {
+                "trait": result["selected_trait"],
+                "recommended_strategies": result["recommended_strategies"],
+                "validation_methods": result["validation_methods"],
+                "candidate_genes": result["candidate_genes"],
+                "research_area": result["research_area"],
+                "confidence": result["confidence"],
+                "disclaimer": result["disclaimer"]
+            }
+
             st.subheader("Research Objective")
             st.success(result["selected_trait"])
 
@@ -79,6 +90,9 @@ def show_rescue_recommendations():
 
             st.warning(result["disclaimer"])
 
+            st.success(
+                "Recommendations saved for Research Report generation."
+            )
+
         except Exception as e:
             st.error(f"Recommendation generation failed: {e}")
-
