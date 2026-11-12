@@ -1,1 +1,11 @@
 
+Gene_ID,Crop,Chromosome,Trait,Expression_Level,Stress_Type,Tolerance_Score
+Gene_001,Rice,Chr1,Drought_Tolerance,85,Drought,92
+Gene_002,Rice,Chr2,Salinity_Tolerance,78,Salinity,88
+Gene_003,Wheat,Chr3,Disease_Resistance,90,Disease,95
+Gene_004,Maize,Chr4,Yield,82,Drought,86
+Gene_005,Rice,Chr5,Drought_Tolerance,75,Drought,81
+Gene_006,Wheat,Chr6,Salinity_Tolerance,88,Salinity,90
+Gene_007,Maize,Chr7,Disease_Resistance,80,Disease,84
+Gene_008,Rice,Chr8,Yield,93,Drought,89
+
