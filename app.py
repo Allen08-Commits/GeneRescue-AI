@@ -11,7 +11,7 @@ from modules.crop_predictor import show_crop_predictor
 from modules.research_reports import show_research_reports
 
 
-# ---------------- APPLICATION CONFIGURATION ----------------
+# ---------------- PAGE CONFIGURATION ----------------
 
 st.set_page_config(
     page_title="GeneRescue AI",
@@ -21,9 +21,9 @@ st.set_page_config(
 )
 
 
-# ---------------- LOAD CSS ----------------
+# ---------------- CUSTOM STYLING ----------------
 
-css_path = Path(__file__).parent / "assets" / "style.css"
+css_path = Path("assets/style.css")
 
 if css_path.exists():
     with open(css_path, "r", encoding="utf-8") as file:
@@ -32,33 +32,55 @@ if css_path.exists():
             unsafe_allow_html=True
         )
 
+st.markdown("""
+<style>
+
+.stApp {
+    background-color: #F5F8F4;
+}
+
+[data-testid="stSidebar"] {
+    background-color: #123C2D;
+}
+
+[data-testid="stSidebar"] * {
+    color: white;
+}
+
+[data-testid="stMetric"] {
+    background: white;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid #DCE8DD;
+}
+
+h1, h2, h3 {
+    color: #174C35;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
 
 # ---------------- SESSION STATE ----------------
 
 if "analysis_history" not in st.session_state:
     st.session_state.analysis_history = []
 
-if "crop_model_results" not in st.session_state:
-    st.session_state.crop_model_results = None
-
 
 # ---------------- SIDEBAR ----------------
 
 with st.sidebar:
 
-    st.markdown(
-        """
-        <h1 style="color:#FFFFFF;">🌱 GeneRescue AI</h1>
-        <p style="color:#D4E8D9;">
-        Intelligent Genetic Rescue System
-        </p>
-        """,
-        unsafe_allow_html=True
+    st.markdown("# 🌱 GeneRescue AI")
+
+    st.caption(
+        "Intelligent Genetic Rescue System"
     )
 
     st.divider()
 
-    selected_page = st.radio(
+    page = st.radio(
         "MAIN NAVIGATION",
         [
             "Dashboard",
@@ -69,57 +91,52 @@ with st.sidebar:
             "Crop Improvement Predictor",
             "Research Reports"
         ],
-        key="main_navigation"
+        index=0
     )
 
     st.divider()
 
-    st.markdown(
-        """
-        **Platform Information**
+    st.markdown("### Research Areas")
 
-        Version: 1.0
+    st.caption("🌾 Drought Tolerance")
+    st.caption("🧂 Salinity Tolerance")
+    st.caption("🦠 Disease Resistance")
+    st.caption("🌱 Yield Improvement")
 
-        Status: Active
+    st.divider()
 
-        Technology: Python + Bioinformatics
-        """
-    )
-
-    st.caption("GeneRescue AI | Crop Genetics Research")
+    st.caption("GeneRescue AI | Version 1.0")
 
 
 # ---------------- PAGE ROUTING ----------------
 
-try:
+if page == "Dashboard":
 
-    if selected_page == "Dashboard":
-        show_dashboard()
+    show_dashboard()
 
-    elif selected_page == "Genetic Data Analyzer":
-        show_data_analyzer()
+elif page == "Genetic Data Analyzer":
 
-    elif selected_page == "Gene Identification":
-        show_gene_identification()
+    show_data_analyzer()
 
-    elif selected_page == "Variant Analysis":
-        show_variant_analysis()
+elif page == "Gene Identification":
 
-    elif selected_page == "Rescue Recommendations":
-        show_rescue_recommendations()
+    show_gene_identification()
 
-    elif selected_page == "Crop Improvement Predictor":
-        show_crop_predictor()
+elif page == "Variant Analysis":
 
-    elif selected_page == "Research Reports":
-        show_research_reports()
+    show_variant_analysis()
 
-except Exception as error:
+elif page == "Rescue Recommendations":
 
-    st.error("An unexpected application error occurred.")
+    show_rescue_recommendations()
 
-    with st.expander("Technical error details"):
-        st.exception(error)
+elif page == "Crop Improvement Predictor":
+
+    show_crop_predictor()
+
+elif page == "Research Reports":
+
+    show_research_reports()
 
 
 # ---------------- FOOTER ----------------
@@ -129,11 +146,10 @@ st.divider()
 st.markdown(
     """
     <div style="text-align:center;color:#718477;font-size:12px;">
-    GeneRescue AI | Intelligent Genetic Rescue System for Crop Improvement
-    <br>
-    Computational research support. Experimental validation required.
+        GeneRescue AI | Intelligent Genetic Rescue System
+        for Crop Improvement<br>
+        Computational research support. Experimental validation required.
     </div>
     """,
     unsafe_allow_html=True
 )
-
