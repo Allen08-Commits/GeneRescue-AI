@@ -1,1 +1,44 @@
 
+.main-title {
+    color: #174C35;
+    font-size: 38px;
+    font-weight: 800;
+}
+
+.subtitle {
+    color: #64786A;
+    font-size: 15px;
+}
+
+.section-title {
+    color: #174C35;
+    font-size: 23px;
+    font-weight: 700;
+}
+
+.metric-card {
+    background-color: #FFFFFF;
+    border: 1px solid #DCE8DD;
+    border-radius: 12px;
+    padding: 18px;
+}
+
+.info-card {
+    background-color: #EDF5ED;
+    border-left: 4px solid #32865B;
+    border-radius: 8px;
+    padding: 15px;
+}
+
+.stButton > button {
+    background-color: #216644;
+    color: white;
+    border-radius: 8px;
+    border: none;
+}
+
+.stButton > button:hover {
+    background-color: #174C35;
+    color: white;
+}
+
