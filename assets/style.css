@@ -232,3 +232,99 @@ hr {
         padding: 12px;
     }
 }
+/* Fix file uploader visibility */
+[data-testid="stFileUploader"] {
+    background-color: #F7FBF7 !important;
+    border: 1px dashed #32865B !important;
+    border-radius: 12px !important;
+}
+
+[data-testid="stFileUploader"] section {
+    background-color: #F7FBF7 !important;
+}
+
+[data-testid="stFileUploader"] small,
+[data-testid="stFileUploader"] span,
+[data-testid="stFileUploader"] p {
+    color: #244B36 !important;
+}
+
+/* Uploaded file name and details */
+[data-testid="stFileUploaderFileName"],
+[data-testid="stFileUploaderFile"] {
+    color: #174C35 !important;
+}
+
+/* Success message visibility */
+[data-testid="stAlert"] {
+    background-color: #E5F3E9 !important;
+    color: #174C35 !important;
+    border: 1px solid #A9D2B5 !important;
+}
+
+[data-testid="stAlert"] p,
+[data-testid="stAlert"] div {
+    color: #174C35 !important;
+}
+
+/* Improve button text contrast */
+.stButton > button {
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
+}
+
+/* ===== DASHBOARD TEXT VISIBILITY FIX ===== */
+
+/* Welcome banner */
+.stAlert,
+div[data-testid="stAlert"] {
+    background-color: #E5F3E9 !important;
+    color: #174C35 !important;
+}
+
+div[data-testid="stAlert"] p {
+    color: #174C35 !important;
+}
+
+/* Dark workflow cards */
+div[style*="background-color: #1E293B"],
+div[style*="background: #1E293B"],
+div[style*="background-color: rgb(30, 41, 59)"] {
+    color: #FFFFFF !important;
+}
+
+/* Make workflow text readable */
+div[data-testid="stMarkdownContainer"] p {
+    color: #244B36;
+}
+
+/* Headings */
+h1, h2, h3, h4 {
+    color: #174C35 !important;
+}
+
+/* Plotly chart text, axes and legends */
+.js-plotly-plot .plotly text {
+    fill: #344B3D !important;
+}
+
+.js-plotly-plot .gtitle {
+    fill: #174C35 !important;
+}
+
+.js-plotly-plot .xtick text,
+.js-plotly-plot .ytick text,
+.js-plotly-plot .legend text {
+    fill: #344B3D !important;
+}
+
+/* Sidebar and navigation */
+section[data-testid="stSidebar"] {
+    background-color: #EAF2EA !important;
+}
+
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span {
+    color: #174C35 !important;
+}
+
