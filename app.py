@@ -1,416 +1,314 @@
 
-import streamlit as st
-from pathlib import Path
+import math
+import numpy as np
+import pandas as pd
 
-# =========================================================
-# IMPORT EXISTING RESEARCH MODULES
-# =========================================================
-
-from modules.dashboard import show_dashboard
-from modules.data_analyzer import show_data_analyzer
-from modules.gene_identification import show_gene_identification
-from modules.variant_analysis import show_variant_analysis
-from modules.rescue_recommendations import show_rescue_recommendations
-from modules.crop_predictor import show_crop_predictor
-from modules.research_reports import show_research_reports
-
-
-# =========================================================
-# PAGE CONFIGURATION
-# =========================================================
-
-st.set_page_config(
-    page_title="GeneRescue AI | Research Workspace",
-    page_icon="🌱",
-    layout="wide",
-    initial_sidebar_state="collapsed"
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix
 )
 
 
-# =========================================================
-# APPLICATION PATHS
-# =========================================================
+def _prepare_features(
+    data,
+    categorical_columns,
+    numeric_medians,
+    feature_columns=None
+):
+    """
+    Prepare numeric and categorical features consistently
+    for both training and prediction.
+    """
 
-BASE_DIR = Path(__file__).resolve().parent
-CSS_PATH = BASE_DIR / "assets" / "style.css"
+    X = data.copy()
 
+    # Ensure all expected input columns exist.
+    for column in categorical_columns:
+        if column not in X.columns:
+            X[column] = "Missing"
 
-# =========================================================
-# GLOBAL CSS
-# =========================================================
+    for column in numeric_medians:
+        if column not in X.columns:
+            X[column] = np.nan
 
-if CSS_PATH.exists():
-    css_content = CSS_PATH.read_text(encoding="utf-8")
+    # Clean numerical columns using training-set medians.
+    for column, median in numeric_medians.items():
 
-    st.markdown(
-        f"<style>{css_content}</style>",
-        unsafe_allow_html=True
+        X[column] = pd.to_numeric(
+            X[column],
+            errors="coerce"
+        )
+
+        X[column] = X[column].replace(
+            [np.inf, -np.inf],
+            np.nan
+        )
+
+        X[column] = X[column].fillna(median)
+
+    # Handle missing categorical values explicitly.
+    for column in categorical_columns:
+
+        X[column] = (
+            X[column]
+            .fillna("Missing")
+            .astype(str)
+        )
+
+    # One-hot encode categorical columns.
+    X = pd.get_dummies(
+        X,
+        columns=categorical_columns,
+        dummy_na=False
     )
 
+    # Match the exact training feature structure.
+    if feature_columns is not None:
+        X = X.reindex(
+            columns=feature_columns,
+            fill_value=0
+        )
 
-# =========================================================
-# HIDE STREAMLIT SIDEBAR
-# =========================================================
+    X = X.apply(
+        pd.to_numeric,
+        errors="coerce"
+    )
 
-st.markdown(
+    X = X.replace(
+        [np.inf, -np.inf],
+        np.nan
+    ).fillna(0)
+
+    return X
+
+
+def train_crop_model(data, target_column):
     """
-    <style>
-
-    [data-testid="stSidebar"] {
-        display: none !important;
-    }
-
-    [data-testid="collapsedControl"] {
-        display: none !important;
-    }
-
-    [data-testid="stHeader"] {
-        background: transparent;
-    }
-
-    .block-container {
-        padding-top: 1.5rem;
-        padding-bottom: 2rem;
-        max-width: 1500px;
-    }
-
-    /* MAIN BRAND HEADER */
-
-    .gr-brand-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 18px;
-        padding: 22px 26px;
-        background: #ffffff;
-        border: 1px solid #e3ebe4;
-        border-radius: 16px;
-        margin-bottom: 22px;
-    }
-
-    .gr-brand-left {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-    }
-
-    .gr-brand-icon {
-        width: 52px;
-        height: 52px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #eaf3eb;
-        border-radius: 13px;
-        font-size: 27px;
-    }
-
-    .gr-brand-name {
-        color: #174c35;
-        font-size: 25px;
-        font-weight: 750;
-        letter-spacing: -0.7px;
-    }
-
-    .gr-brand-subtitle {
-        color: #718276;
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 1.5px;
-        margin-top: 3px;
-    }
-
-    .gr-status {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 9px 14px;
-        border-radius: 30px;
-        background: #edf6ef;
-        color: #276344;
-        font-size: 12px;
-        font-weight: 650;
-    }
-
-    .gr-status-dot {
-        height: 8px;
-        width: 8px;
-        background: #329b62;
-        border-radius: 50%;
-    }
-
-    /* NAVIGATION AREA */
-
-    .gr-navigation-label {
-        color: #738477;
-        font-size: 10px;
-        font-weight: 750;
-        letter-spacing: 1.5px;
-        margin: 8px 0 5px 3px;
-    }
-
-    /* PAGE INTRODUCTION */
-
-    .gr-page-heading {
-        padding: 19px 3px 14px 3px;
-    }
-
-    .gr-page-eyebrow {
-        color: #718477;
-        font-size: 10px;
-        font-weight: 750;
-        letter-spacing: 1.5px;
-        margin-bottom: 7px;
-    }
-
-    .gr-page-title {
-        color: #174c35;
-        font-size: 29px;
-        font-weight: 750;
-        letter-spacing: -0.8px;
-        line-height: 1.25;
-    }
-
-    .gr-page-description {
-        color: #738176;
-        font-size: 13px;
-        margin-top: 7px;
-    }
-
-    /* FOOTER */
-
-    .gr-footer {
-        margin-top: 45px;
-        padding: 20px 5px 8px 5px;
-        border-top: 1px solid #e2eae3;
-        text-align: center;
-        color: #738176;
-        font-size: 11px;
-        line-height: 1.8;
-    }
-
-    .gr-footer-brand {
-        color: #174c35;
-        font-weight: 750;
-        font-size: 14px;
-    }
-
-    /* REMOVE EXCESSIVE TOP NAVIGATION SPACING */
-
-    div[data-testid="stRadio"] > label {
-        display: none;
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-
-# =========================================================
-# SESSION STATE
-# =========================================================
-
-if "analysis_history" not in st.session_state:
-    st.session_state["analysis_history"] = []
-
-if "rescue_report_data" not in st.session_state:
-    st.session_state["rescue_report_data"] = None
-
-
-# =========================================================
-# NAVIGATION CONFIGURATION
-# =========================================================
-
-PAGES = [
-    "Dashboard",
-    "Genetic Data Analyzer",
-    "Gene Identification",
-    "Variant Analysis",
-    "Rescue Recommendations",
-    "Crop Improvement Predictor",
-    "Research Reports"
-]
-
-PAGE_DESCRIPTIONS = {
-    "Dashboard":
-        "Your central overview of the GeneRescue AI research platform.",
-
-    "Genetic Data Analyzer":
-        "Upload genetic datasets and investigate sequence characteristics.",
-
-    "Gene Identification":
-        "Identify potential genes and open reading frames from nucleotide sequences.",
-
-    "Variant Analysis":
-        "Explore genetic variations and their structural classifications.",
-
-    "Rescue Recommendations":
-        "Investigate computational strategies for crop improvement.",
-
-    "Crop Improvement Predictor":
-        "Explore crop traits using machine-learning prediction models.",
-
-    "Research Reports":
-        "Generate and export structured research analysis reports."
-}
-
-PAGE_ICONS = {
-    "Dashboard": "⌂",
-    "Genetic Data Analyzer": "🧬",
-    "Gene Identification": "🔬",
-    "Variant Analysis": "🧪",
-    "Rescue Recommendations": "🌱",
-    "Crop Improvement Predictor": "📊",
-    "Research Reports": "📑"
-}
-
-
-# =========================================================
-# TOP BRAND HEADER
-# =========================================================
-
-st.markdown(
+    Train a Random Forest model using a labeled crop dataset.
+    Returns the trained model and evaluation information.
     """
-    <div class="gr-brand-header">
 
-        <div class="gr-brand-left">
+    if target_column not in data.columns:
+        raise ValueError("Target column not found in dataset.")
 
-            <div class="gr-brand-icon">
-                🌱
-            </div>
+    df = data.copy()
 
-            <div>
-                <div class="gr-brand-name">
-                    GeneRescue AI
-                </div>
+    # Remove records without target labels.
+    df = df.dropna(subset=[target_column])
 
-                <div class="gr-brand-subtitle">
-                    CLINICAL RESEARCH WORKSPACE
-                </div>
-            </div>
+    if len(df) < 10:
+        raise ValueError(
+            "At least 10 labeled records are required."
+        )
 
-        </div>
+    y = df[target_column].astype(str)
 
-        <div class="gr-status">
-            <span class="gr-status-dot"></span>
-            Research Platform
-        </div>
+    if y.nunique() < 2:
+        raise ValueError(
+            "Target must contain at least two classes."
+        )
 
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+    if y.value_counts().min() < 2:
+        raise ValueError(
+            "Each target class must contain at least two records."
+        )
+
+    # Remove the target and identifier columns.
+    X = df.drop(columns=[target_column])
+
+    X = X.drop(
+        columns=[
+            col for col in X.columns
+            if col.lower() in [
+                "id",
+                "gene_id",
+                "sequence_id",
+                "name"
+            ]
+        ],
+        errors="ignore"
+    )
+
+    if X.shape[1] == 0:
+        raise ValueError(
+            "No usable feature columns found."
+        )
+
+    # Identify categorical and numerical columns.
+    categorical_columns = list(
+        X.select_dtypes(
+            include=["object", "category", "bool"]
+        ).columns
+    )
+
+    numeric_columns = [
+        column for column in X.columns
+        if column not in categorical_columns
+    ]
+
+    # Convert numerical columns and identify medians.
+    # Medians will be fitted ONLY on training data.
+    for column in numeric_columns:
+
+        X[column] = pd.to_numeric(
+            X[column],
+            errors="coerce"
+        )
+
+        X[column] = X[column].replace(
+            [np.inf, -np.inf],
+            np.nan
+        )
+
+    # Determine a suitable test set size.
+    number_of_classes = y.nunique()
+
+    test_count = max(
+        math.ceil(len(df) * 0.2),
+        number_of_classes
+    )
+
+    if test_count > len(df) - number_of_classes:
+        raise ValueError(
+            "The dataset is too small for a stratified train/test split. "
+            "Provide more records across the target classes."
+        )
+
+    # Split raw data BEFORE fitting preprocessing.
+    X_train_raw, X_test_raw, y_train, y_test = train_test_split(
+        X,
+        y,
+        test_size=test_count,
+        random_state=42,
+        stratify=y
+    )
+
+    # Calculate numerical medians using training data only.
+    numeric_medians = {}
+
+    for column in numeric_columns:
+
+        median = X_train_raw[column].median()
+
+        if pd.isna(median):
+            median = 0
+
+        numeric_medians[column] = float(median)
+
+    # Prepare training and test features consistently.
+    X_train = _prepare_features(
+        X_train_raw,
+        categorical_columns,
+        numeric_medians
+    )
+
+    X_test = _prepare_features(
+        X_test_raw,
+        categorical_columns,
+        numeric_medians,
+        feature_columns=X_train.columns
+    )
+
+    if X_train.shape[1] == 0:
+        raise ValueError(
+            "No usable features remain after preprocessing."
+        )
+
+    # ---------------- RANDOM FOREST MODEL ----------------
+
+    model = RandomForestClassifier(
+        n_estimators=200,
+        random_state=42,
+        class_weight="balanced"
+    )
+
+    model.fit(
+        X_train,
+        y_train
+    )
+
+    predictions = model.predict(X_test)
+
+    # ---------------- MODEL EVALUATION ----------------
+
+    accuracy = accuracy_score(
+        y_test,
+        predictions
+    )
+
+    report = classification_report(
+        y_test,
+        predictions,
+        output_dict=True,
+        zero_division=0
+    )
+
+    matrix = confusion_matrix(
+        y_test,
+        predictions,
+        labels=model.classes_
+    )
+
+    importance = pd.DataFrame({
+        "Feature": X_train.columns,
+        "Importance": model.feature_importances_
+    }).sort_values(
+        "Importance",
+        ascending=False
+    ).reset_index(drop=True)
+
+    return {
+        "model": model,
+        "features": list(X_train.columns),
+        "input_features": list(X.columns),
+        "categorical_columns": categorical_columns,
+        "numeric_medians": numeric_medians,
+        "accuracy": round(accuracy * 100, 2),
+        "classification_report": report,
+        "confusion_matrix": matrix,
+        "feature_importance": importance,
+        "classes": list(model.classes_),
+        "training_samples": len(X_train),
+        "test_samples": len(X_test)
+    }
 
 
-# =========================================================
-# HORIZONTAL NAVIGATION
-# =========================================================
+def predict_crop_trait(model_results, new_data):
+    """Predict trait classes for new records."""
 
-st.markdown(
-    '<div class="gr-navigation-label">RESEARCH NAVIGATION</div>',
-    unsafe_allow_html=True
-)
+    model = model_results["model"]
 
-page = st.radio(
-    "Main Navigation",
-    options=PAGES,
-    index=0,
-    horizontal=True,
-    label_visibility="collapsed",
-    key="main_navigation"
-)
+    # Retain only the original model input columns.
+    input_features = model_results["input_features"]
 
+    X = new_data.copy()
 
-# =========================================================
-# CURRENT PAGE HEADER
-# =========================================================
+    for column in input_features:
+        if column not in X.columns:
+            X[column] = np.nan
 
-page_icon = PAGE_ICONS[page]
-page_description = PAGE_DESCRIPTIONS[page]
+    X = X[input_features]
 
-st.markdown(
-    f"""
-    <div class="gr-page-heading">
+    # Apply the same preprocessing used during training.
+    X = _prepare_features(
+        X,
+        model_results["categorical_columns"],
+        model_results["numeric_medians"],
+        feature_columns=model_results["features"]
+    )
 
-        <div class="gr-page-eyebrow">
-            GENE RESCUE RESEARCH PLATFORM
-        </div>
+    predictions = model.predict(X)
 
-        <div class="gr-page-title">
-            {page_icon} &nbsp; {page}
-        </div>
+    probabilities = model.predict_proba(X)
 
-        <div class="gr-page-description">
-            {page_description}
-        </div>
+    results = pd.DataFrame({
+        "Predicted_Trait": predictions,
+        "Model_Confidence_Percentage": (
+            probabilities.max(axis=1) * 100
+        ).round(2)
+    })
 
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-st.divider()
-
-
-# =========================================================
-# PAGE ROUTING
-# =========================================================
-
-if page == "Dashboard":
-
-    show_dashboard()
-
-elif page == "Genetic Data Analyzer":
-
-    show_data_analyzer()
-
-elif page == "Gene Identification":
-
-    show_gene_identification()
-
-elif page == "Variant Analysis":
-
-    show_variant_analysis()
-
-elif page == "Rescue Recommendations":
-
-    show_rescue_recommendations()
-
-elif page == "Crop Improvement Predictor":
-
-    show_crop_predictor()
-
-elif page == "Research Reports":
-
-    show_research_reports()
-
-
-# =========================================================
-# APPLICATION FOOTER
-# =========================================================
-
-st.markdown(
-    """
-    <div class="gr-footer">
-
-        <div class="gr-footer-brand">
-            GeneRescue AI
-        </div>
-
-        Intelligent Genetic Rescue System for Crop Improvement
-
-        <br>
-
-        Computational research support.
-        Findings require independent scientific and experimental validation.
-
-        <br>
-
-        Research Workspace · Version 2.0
-
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+    return results
