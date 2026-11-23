@@ -308,67 +308,284 @@ def render_database_explorer():
         _provenance(st.session_state.get("gr_ncbi_fasta_prov",{}))
 
 def render_functional_annotation():
+    """Retrieve and present UniProt, InterPro and PubMed evidence clearly."""
     st.subheader("Functional Annotation")
-    st.write("Retrieve protein records and functional domain evidence from UniProtKB and InterPro.")
-    accession=st.text_input("UniProt accession",placeholder="e.g. P12345",key="annotation_accession")
-    col1,col2=st.columns(2)
-    with col1:
-        if st.button("Retrieve UniProt annotation",type="primary",disabled=not accession.strip()):
+    st.write(
+        "Characterize a protein using live UniProtKB records, InterPro domain "
+        "matches and supporting PubMed literature."
+    )
+
+    accession = st.text_input(
+        "UniProt accession",
+        placeholder="e.g. P04637",
+        key="annotation_accession",
+        help="Enter a UniProt accession such as P04637. The page retrieves live records.",
+    ).strip()
+
+    if not accession:
+        st.info("Enter a UniProt accession to begin protein characterization.")
+    else:
+        left, right = st.columns([1, 1])
+        with left:
+            retrieve_uniprot = st.button(
+                "Retrieve protein annotation",
+                type="primary",
+                use_container_width=True,
+                key="retrieve_functional_uniprot",
+            )
+        with right:
+            retrieve_interpro = st.button(
+                "Retrieve domain matches",
+                use_container_width=True,
+                key="retrieve_functional_interpro",
+            )
+
+        if retrieve_uniprot:
             try:
-                entry,prov=uniprot_entry(accession.strip())
-                fasta,fprov=uniprot_fasta(accession.strip())
-                st.session_state["gr_uniprot_entry"]=entry
-                st.session_state["gr_uniprot_fasta"]=fasta
-                st.session_state["gr_uniprot_prov"]=prov
-                st.session_state["gr_uniprot_accession"]=accession.strip()
-            except Exception as exc: st.error(f"UniProt retrieval failed: {exc}")
-    with col2:
-        if st.button("Retrieve InterPro domains",disabled=not accession.strip()):
+                with st.spinner("Retrieving protein record and FASTA from UniProtKB..."):
+                    entry, prov = uniprot_entry(accession)
+                    fasta, fasta_prov = uniprot_fasta(accession)
+                st.session_state["gr_uniprot_entry"] = entry
+                st.session_state["gr_uniprot_fasta"] = fasta
+                st.session_state["gr_uniprot_prov"] = prov
+                st.session_state["gr_uniprot_fasta_prov"] = fasta_prov
+                st.session_state["gr_uniprot_accession"] = accession
+                st.success("UniProtKB record retrieved.")
+            except Exception as exc:
+                st.error(f"UniProtKB retrieval failed: {exc}")
+
+        if retrieve_interpro:
             try:
-                rows,prov=interpro_search(accession.strip())
-                st.session_state["gr_interpro_rows"]=rows
-                st.session_state["gr_interpro_prov"]=prov
-            except Exception as exc: st.error(f"InterPro retrieval failed: {exc}")
-    entry=st.session_state.get("gr_uniprot_entry")
-    if entry and st.session_state.get("gr_uniprot_accession")==accession.strip():
-        rec=entry.get("proteinDescription",{}).get("recommendedName",{}).get("fullName",{}).get("value","")
-        org=entry.get("organism",{}).get("scientificName","")
-        seq=entry.get("sequence",{})
-        st.markdown("#### Protein record")
-        st.write(f"**Protein:** {rec or 'Not provided'}")
-        st.write(f"**Organism:** {org or 'Not provided'}")
-        st.write(f"**Length:** {seq.get('length','Not provided')} amino acids")
-        st.json(entry.get("comments",[])[:8])
-        st.download_button("Download protein FASTA",st.session_state.get("gr_uniprot_fasta",""),f"{accession}.fasta","text/plain")
-        _provenance(st.session_state.get("gr_uniprot_prov",{}))
-        _report("Functional protein annotation", [f"Accession: {accession}", f"Protein: {rec}", f"Organism: {org}", f"Length: {seq.get('length','')} aa"], "functional_annotation")
-    domains=st.session_state.get("gr_interpro_rows")
-    if domains is not None:
-        st.markdown("#### InterPro domain and family matches")
-        if domains: st.dataframe(pd.DataFrame(domains),use_container_width=True,hide_index=True)
-        else: st.info("No InterPro matches were returned.")
-        _provenance(st.session_state.get("gr_interpro_prov",{}))
+                with st.spinner("Retrieving InterPro domain and family matches..."):
+                    rows, prov = interpro_search(accession)
+                st.session_state["gr_interpro_rows"] = rows
+                st.session_state["gr_interpro_prov"] = prov
+                st.session_state["gr_interpro_accession"] = accession
+                st.success(f"InterPro retrieval completed: {len(rows)} match(es).")
+            except Exception as exc:
+                st.error(f"InterPro retrieval failed: {exc}")
+
+    entry = st.session_state.get("gr_uniprot_entry")
+    active_uniprot = st.session_state.get("gr_uniprot_accession") == accession
+    if entry and active_uniprot:
+        protein_desc = entry.get("proteinDescription", {})
+        recommended = protein_desc.get("recommendedName", {})
+        rec = recommended.get("fullName", {}).get("value", "")
+        if not rec:
+            submissions = protein_desc.get("submissionNames", [])
+            if submissions:
+                rec = submissions[0].get("fullName", {}).get("value", "")
+        org_data = entry.get("organism", {})
+        org = org_data.get("scientificName", "Not provided")
+        gene_names = entry.get("genes", [])
+        gene_symbol = ""
+        if gene_names:
+            gene_symbol = gene_names[0].get("geneName", {}).get("value", "")
+        seq = entry.get("sequence", {})
+        sequence = seq.get("value", "")
+        length = seq.get("length", len(sequence) if sequence else "Not provided")
+        entry_type = entry.get("entryType", "Not provided")
+        primary_accession = entry.get("primaryAccession", accession)
+
+        # Extract readable biological-function statements from UniProt comments.
+        function_texts = []
+        subcellular_texts = []
+        for comment in entry.get("comments", []):
+            comment_type = comment.get("commentType", "")
+            texts = []
+            for item in comment.get("texts", []):
+                value = item.get("value", "")
+                if value:
+                    texts.append(value)
+            if comment_type == "FUNCTION" and texts:
+                function_texts.extend(texts)
+            elif comment_type == "SUBCELLULAR LOCATION":
+                for location in comment.get("subcellularLocations", []):
+                    location_value = location.get("location", {}).get("value", "")
+                    if location_value:
+                        subcellular_texts.append(location_value)
+
+        keywords = [
+            item.get("name", "")
+            for item in entry.get("keywords", [])
+            if item.get("name")
+        ]
+        go_terms = []
+        for ref in entry.get("uniProtKBCrossReferences", []):
+            if ref.get("database") == "GO":
+                props = {p.get("key"): p.get("value") for p in ref.get("properties", [])}
+                go_terms.append({
+                    "GO ID": ref.get("id", ""),
+                    "Term": props.get("GoTerm", ""),
+                })
+
+        st.divider()
+        st.markdown("### Protein overview")
+        st.markdown(f"**{rec or 'Protein name not provided'}**")
+        st.caption(f"{primary_accession} · {org} · {entry_type}")
+
+        metric_cols = st.columns(4)
+        metric_cols[0].metric("Amino acids", length)
+        metric_cols[1].metric("Gene symbol", gene_symbol or "Not provided")
+        metric_cols[2].metric("Sequence mass", f"{seq.get(' molWeight', seq.get('molWeight', 'N/A'))} Da" if seq.get("molWeight") else "Not provided")
+        metric_cols[3].metric("Keywords", len(keywords))
+
+        if function_texts:
+            st.markdown("### Biological function")
+            for text_item in function_texts:
+                st.write(text_item)
+        else:
+            st.info("UniProtKB did not provide a FUNCTION comment for this record.")
+
+        detail_cols = st.columns(2)
+        with detail_cols[0]:
+            st.markdown("**Subcellular location**")
+            if subcellular_texts:
+                for location in sorted(set(subcellular_texts)):
+                    st.write(f"• {location}")
+            else:
+                st.caption("No subcellular location statement was returned.")
+        with detail_cols[1]:
+            st.markdown("**Functional keywords**")
+            if keywords:
+                st.write(", ".join(keywords))
+            else:
+                st.caption("No keywords were returned.")
+
+        if go_terms:
+            st.markdown("### Gene Ontology cross-references")
+            st.dataframe(pd.DataFrame(go_terms), use_container_width=True, hide_index=True)
+
+        if sequence:
+            st.markdown("### Protein sequence")
+            st.caption(f"{len(sequence)} amino acids · UniProtKB sequence")
+            st.code(
+                "\\n".join(sequence[i:i + 60] for i in range(0, len(sequence), 60)),
+                language="text",
+            )
+            fasta = st.session_state.get("gr_uniprot_fasta", "")
+            if fasta:
+                st.download_button(
+                    "Download protein FASTA",
+                    data=fasta,
+                    file_name=f"{primary_accession}.fasta",
+                    mime="text/plain",
+                    key="download_functional_fasta",
+                )
+
+        st.caption(
+            f"Source: UniProtKB · Retrieved: "
+            f"{st.session_state.get('gr_uniprot_prov', {}).get('retrieved_at_utc', 'Not recorded')}"
+        )
+        st.markdown(f"[Open UniProtKB record](https://www.uniprot.org/uniprotkb/{primary_accession})")
+
+        with st.expander("Technical details and raw UniProt response"):
+            st.json(entry)
+
+        report_lines = [
+            f"Accession: {primary_accession}",
+            f"Protein: {rec}",
+            f"Gene symbol: {gene_symbol}",
+            f"Organism: {org}",
+            f"Length: {length} amino acids",
+            "Biological function: " + " ".join(function_texts),
+            "Subcellular location: " + ", ".join(sorted(set(subcellular_texts))),
+            "Keywords: " + ", ".join(keywords),
+        ]
+        _report("Functional Protein Annotation", report_lines, "functional_annotation")
+
+    domains = st.session_state.get("gr_interpro_rows")
+    active_interpro = st.session_state.get("gr_interpro_accession") == accession
+    if domains is not None and active_interpro:
+        st.divider()
+        st.markdown("### InterPro domain and family analysis")
+        st.metric("InterPro matches", len(domains))
         if domains:
-            _report("InterPro domain matches", [str(x) for x in domains], "interpro_domains")
+            domain_df = pd.DataFrame(domains)
+            preferred = [
+                "InterPro accession", "Name", "Type",
+                "Source database", "Entry URL",
+            ]
+            display_cols = [c for c in preferred if c in domain_df.columns]
+            st.dataframe(
+                domain_df[display_cols] if display_cols else domain_df,
+                use_container_width=True,
+                hide_index=True,
+            )
+            st.download_button(
+                "Download domain matches CSV",
+                data=domain_df.to_csv(index=False),
+                file_name=f"{accession}_interpro_domains.csv",
+                mime="text/csv",
+                key="download_interpro_csv",
+            )
+            st.caption(
+                "InterPro matches identify database-defined families, domains and "
+                "conserved sites. The current API response does not provide residue "
+                "coordinates in this table, so no domain positions are inferred."
+            )
+            with st.expander("Technical details and raw InterPro results"):
+                st.json(domains)
+            _report(
+                "InterPro Domain and Family Matches",
+                [f"{row.get('InterPro accession', '')}: {row.get('Name', '')} "
+                 f"({row.get('Type', '')})" for row in domains],
+                "interpro_domains",
+            )
+        else:
+            st.info("No InterPro matches were returned for this accession.")
+        _provenance(st.session_state.get("gr_interpro_prov", {}))
+        st.markdown(
+            f"[Open InterPro results](https://www.ebi.ac.uk/interpro/protein/UniProt/{accession})"
+        )
+
     st.divider()
-    st.markdown("**Search supporting literature in PubMed**")
-    litquery=st.text_input("Literature query",placeholder="e.g. rice drought tolerance NAC transcription factor")
-    if st.button("Search PubMed",disabled=not litquery.strip()):
+    st.markdown("### Supporting literature")
+    st.write("Search PubMed for publications related to this protein, gene or biological function.")
+    litquery = st.text_input(
+        "PubMed search query",
+        value=accession if accession else "",
+        placeholder="e.g. TP53 DNA repair apoptosis",
+        key="functional_pubmed_query",
+    )
+    if st.button(
+        "Search supporting literature",
+        disabled=not litquery.strip(),
+        key="functional_pubmed_search",
+    ):
         try:
-            articles,prov=pubmed_search(litquery,10)
-            st.session_state["gr_pubmed_articles"]=articles
-            st.session_state["gr_pubmed_prov"]=prov
-        except Exception as exc: st.error(f"PubMed search failed: {exc}")
-    articles=st.session_state.get("gr_pubmed_articles")
-    if articles is not None:
-        for article in articles:
-            with st.expander(f"{article['Year']} · {article['Title']}"):
-                st.write(article["Journal"])
-                st.write(article["Abstract"] or "No abstract available.")
-                st.markdown(f"[Open PubMed record]({article['URL']})")
-        _provenance(st.session_state.get("gr_pubmed_prov",{}))
+            with st.spinner("Searching PubMed..."):
+                articles, prov = pubmed_search(litquery.strip(), 10)
+            st.session_state["gr_pubmed_articles"] = articles
+            st.session_state["gr_pubmed_prov"] = prov
+            st.session_state["gr_pubmed_query"] = litquery.strip()
+        except Exception as exc:
+            st.error(f"PubMed search failed: {exc}")
+
+    articles = st.session_state.get("gr_pubmed_articles")
+    if articles is not None and st.session_state.get("gr_pubmed_query") == litquery.strip():
+        if not articles:
+            st.info("PubMed returned no matching articles for this query.")
+        for index, article in enumerate(articles):
+            title = article.get("Title") or "Untitled article"
+            year = article.get("Year") or "Year not available"
+            with st.expander(f"{year} · {title}"):
+                st.write(article.get("Journal", ""))
+                st.write(article.get("Abstract") or "No abstract available.")
+                pmid = article.get("PMID", "")
+                url = article.get("URL") or (
+                    f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid else ""
+                )
+                if url:
+                    st.markdown(f"[Open PubMed record]({url})")
+        _provenance(st.session_state.get("gr_pubmed_prov", {}))
         if articles:
-            _report("PubMed literature retrieval", [f"{x['PMID']}: {x['Title']} ({x['Year']})" for x in articles], "pubmed_literature")
+            lit_lines = [
+                f"{item.get('PMID', '')}: {item.get('Title', '')} "
+                f"({item.get('Year', '')})"
+                for item in articles
+            ]
+            _report("PubMed Supporting Literature", lit_lines, "pubmed_literature")
 
 def render_crop_intelligence():
     st.subheader("Crop Intelligence")
@@ -419,4 +636,3 @@ def render_tool(tool):
         "Crop Intelligence":render_crop_intelligence,
     }
     renderers[tool]()
-
